@@ -8,6 +8,7 @@ Termux:X11
 PRoot
 PRoot-Distro
 等
+下载链接* https://github.com/afeimod/WinEmulator/releases
 ### 来源链接
 
 * https://github.com/jiaxinchen-max/termux-app
