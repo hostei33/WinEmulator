@@ -565,7 +565,6 @@ object Utils {
 
             val symLinkList = mutableListOf<SymLink>()
             val dirModeList = mutableListOf<Pair<String, Int>>()  //压缩包内文件夹权限
-            var extractCount = 0F //解压出的文件个数
 
             reporter.msg("正在解压文件...")
             archiveInput.use { zis ->
@@ -573,7 +572,6 @@ object Utils {
                 TarArchiveInputStream(zis).use { tis ->
                     var entry: TarArchiveEntry
                     while (tis.nextEntry.also { entry = it } != null) {
-                        extractCount++
                         statistics?.let { reporter.progressValue(statistics.compressedCount) } //更新解压进度
                         val name = entryNameMapper(entry.name)
                         if (name.isEmpty())
