@@ -752,7 +752,8 @@ object Utils {
                     Os.chmod(item.first, item.second)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    reporter.msg("恢复文件夹权限时出错")
+                    val relativePath = item.first.substringAfter(outDir.absolutePath)
+                    reporter.msg("恢复文件夹权限时出错: $relativePath - ${e.message}")
                 }
             }
         }
