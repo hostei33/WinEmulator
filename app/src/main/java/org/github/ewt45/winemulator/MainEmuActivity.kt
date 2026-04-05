@@ -222,6 +222,9 @@ class MainEmuActivity : MainActivity() {
             isFocusableInTouchMode = true
             isVerticalScrollBarEnabled = true
             setTextSize((resources.displayMetrics.density * 12).toInt())
+            // 使用 sans-serif-monospace 字体族，等宽且支持中文回退
+            // 比 MONOSPACE 有更好的 Unicode 覆盖
+            setTypeface(android.graphics.Typeface.create("sans-serif-monospace", android.graphics.Typeface.NORMAL))
         }
     }
 }
