@@ -863,35 +863,12 @@ object Utils {
 
         /**
          * 修复l2s文件软链接指向的路径
-         * @param skipProcess 跳过处理。目前指定l2s变量会有问题，所以先不处理了
+         * @param skipProcess 跳过处理。目前指定l2s变量会有问题，所以先不处理了，但保留 .l2s 文件夹
          */
         private fun fixL2sFiles(outDir: File, symLinkList: List<SymLink>, reporter: TaskReporter, skipProcess: Boolean = false) {
             if (skipProcess) {
-                reporter.msg("跳过修复l2s文件, 全部删除...")
-                fun delL2s(files: List<File>, reporter: TaskReporter) =
-                    files.forEach { if (it.delete()) reporter.msg("删除l2s文件：${it.absolutePath}") }
-
-                val l2sDir = File(outDir, ".l2s")
-                //如果不处理，把相关文件都删掉。靠程序重新创建
-                for (item in symLinkList) {
-                    try {
-                        val symlinkFile = File(item.symlink)
-                        val pointToFile = File(item.pointTo)
-                        //自己是中间文件或硬链接模拟，都可以执行相同操作：删除自身，同目录/l2s目录下指向文件名
-                        if (symlinkFile.name.startsWith(".l2s.") || pointToFile.name.startsWith(".l2s.")) {
-                            delL2s(listOf(symlinkFile, File(symlinkFile.parentFile!!, pointToFile.name), File(l2sDir, pointToFile.name)), reporter)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        reporter.msg("删除l2s文件时出错。文件=$item 。错误消息 = ${e.stackTraceToString()}")
-                    }
-                }
-                try {
-                    File(outDir, "/.l2s").let { FileUtils.deleteDirectory(it) }.also { reporter.msg("删除 .l2s 文件夹") }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    reporter.msg("删除 .l2s 文件夹失败。错误消息 = ${e.stackTraceToString()}")
-                }
+                reporter.msg("跳过修复l2s文件，保留 .l2s 文件夹供后续处理...")
+                // 不再删除 .l2s 文件夹，让 postExtractRootfs 中的 fixL2sSymlinks 来处理符号链接
                 return
             }
 
