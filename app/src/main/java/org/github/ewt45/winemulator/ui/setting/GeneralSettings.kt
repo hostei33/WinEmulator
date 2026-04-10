@@ -230,10 +230,8 @@ fun GeneralRootfsSelect(
                 Box {
                     Row(Modifier.padding(0.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1F)) {
-                            GeneralRootfsSelect_RootfsName(rootfsName, rootfsAlias, isCurr, dialogState, onAliasChange) { old, new ->
-                                onRootfsNameChange(old, new, FuncOnChangeAction.EDIT)
-                                if (isCurr) onRootfsSelectChange(new)
-                            }
+                            // 设置页面：只修改别名，不修改容器文件夹名
+                            GeneralRootfsSelect_RootfsName(rootfsName, rootfsAlias, isCurr, dialogState, onAliasChange)
                             Spacer(Modifier.height(8.dp))
                             GeneralRootfsSelect_LoginUserSelect(rootfsName, userName, userNameOptions, onUserSelectChange)
                         }
@@ -367,6 +365,13 @@ fun GeneralRootfsSelect_LoginUserSelect(
  * @param rootfsAlias 当前别名
  * @param onAliasChange 别名修改回调
  */
+/**
+ * 显示容器名称编辑框
+ * @param rootfsName rootfs 文件夹名
+ * @param rootfsAlias 当前别名
+ * @param onAliasChange 别名修改回调。如果不需要修改别名（如导入后界面），传入空lambda
+ * @param onRootfsNameChange 容器名修改回调。在导入后界面使用，用于重命名容器文件夹
+ */
 @Composable
 fun GeneralRootfsSelect_RootfsName(
     rootfsName: String,
@@ -376,11 +381,20 @@ fun GeneralRootfsSelect_RootfsName(
     onAliasChange: (String, String) -> Unit,
     onRootfsNameChange: suspend (String, String) -> Unit = { _, _ -> },
 ) {
+    val scope = rememberCoroutineScope()
+    
     TextFieldOption(rootfsAlias, title = "Rootfs名称", outlined = true) {
-        val newAlias = it.trim()
-        if (newAlias.isBlank() || newAlias == rootfsAlias) return@TextFieldOption
-        // 直接修改别名，不需要确认对话框
-        onAliasChange(rootfsName, newAlias)
+        val newName = it.trim()
+        if (newName.isBlank() || newName == rootfsAlias) return@TextFieldOption
+        
+        // 修改别名（设置页面使用）
+        onAliasChange(rootfsName, newName)
+        
+        // 修改容器名（导入后界面使用）
+        // 当 onRootfsNameChange 不是默认实现时调用
+        scope.launch {
+            onRootfsNameChange(rootfsName, newName)
+        }
     }
 }
 
