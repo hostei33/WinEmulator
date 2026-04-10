@@ -360,6 +360,37 @@ object Utils {
     }
 
     object Rootfs {
+        /** 别名文件名，存放在 rootfs 目录下 */
+        private const val ALIAS_FILE_NAME = ".alias"
+
+        /**
+         * 获取 rootfs 的显示别名
+         * @param rootfsDir rootfs 目录
+         * @return 别名，如果不存在则返回文件夹名
+         */
+        fun getAlias(rootfsDir: File): String {
+            val aliasFile = File(rootfsDir, ALIAS_FILE_NAME)
+            return if (aliasFile.exists()) {
+                aliasFile.readText().trim().takeIf { it.isNotEmpty() } ?: rootfsDir.name
+            } else {
+                rootfsDir.name
+            }
+        }
+
+        /**
+         * 设置 rootfs 的别名
+         * @param rootfsDir rootfs 目录
+         * @param alias 别名，为空时删除别名文件
+         */
+        fun setAlias(rootfsDir: File, alias: String) {
+            val aliasFile = File(rootfsDir, ALIAS_FILE_NAME)
+            if (alias.isBlank()) {
+                aliasFile.delete()
+            } else {
+                aliasFile.writeText(alias)
+            }
+        }
+
         /**
          * 将某一个rootfs激活为当前rootfs（之后可通过rootfsCurrDir 获取)
          * 会将该rootfs文件名保存到datastore
@@ -435,6 +466,9 @@ object Utils {
             //解压后做一些处理操作
             reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(targetOutDir)
+
+            //创建默认别名文件
+            setAlias(targetOutDir, "rootfs-$num")
 
             return@withContext targetOutDir
         }
@@ -521,7 +555,10 @@ object Utils {
             // 解压后做一些处理操作
             reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(targetOutDir)
-            
+
+            //创建默认别名文件
+            setAlias(targetOutDir, "rootfs-$num")
+
             return@withContext targetOutDir
         }
 
