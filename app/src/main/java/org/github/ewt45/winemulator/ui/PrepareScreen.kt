@@ -402,10 +402,8 @@ private fun RootfsSelect(
                     onAliasChange = { _, newAlias ->
                         Utils.Rootfs.setAlias(File(Consts.rootfsAllDir, rootfsName), newAlias)
                         rootfsAlias = newAlias
-                    },
-                    onRootfsNameChange = { oldRootfsName, newRootfsName ->
-                        onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
                     }
+                    // 不传入 onRootfsNameChange，只修改别名，不修改文件夹名
                 )
 
                 val userList = getAvailableUsers(rootfsName)
