@@ -393,9 +393,16 @@ private fun RootfsSelect(
                 HorizontalDivider(Modifier.padding(16.dp), 2.dp)
                 Text("退出之前，您还可以编辑以下内容")
 
-                GeneralRootfsSelect_RootfsName(rootfsName, false, dialogState) { oldRootfsName, newRootfsName ->
-                    onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
-                }
+                GeneralRootfsSelect_RootfsName(
+                    rootfsName = rootfsName,
+                    rootfsAlias = rootfsName,
+                    isCurr = false,
+                    dialogState = dialogState,
+                    onAliasChange = { _, _ -> },
+                    onRootfsNameChange = { oldRootfsName, newRootfsName ->
+                        onRootfsNameChange(oldRootfsName, newRootfsName, FuncOnChangeAction.EDIT)
+                    }
+                )
 
                 val userList = getAvailableUsers(rootfsName)
                 userList.find { it != "root" }?.let { nonRootUser ->
@@ -508,7 +515,14 @@ private fun PrepareStageScreenFinishPreview() {
             Text("退出之前，您还可以编辑以下内容。。")
 
             Spacer(Modifier.height(16.dp))
-            GeneralRootfsSelect_RootfsName("rootfs-1", false, dialogState) { _, _ -> }
+            GeneralRootfsSelect_RootfsName(
+                rootfsName = "rootfs-1",
+                rootfsAlias = "rootfs-1",
+                isCurr = false,
+                dialogState = dialogState,
+                onAliasChange = { _, _ -> },
+                onRootfsNameChange = { _, _ -> }
+            )
 
             val userList = listOf("root", "aid_u0_a287", "iuser").filter { !it.startsWith("aid_") }.sorted()
             val nonRootUser = userList.find { it != "root" }

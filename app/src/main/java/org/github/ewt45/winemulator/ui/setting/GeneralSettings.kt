@@ -568,7 +568,16 @@ fun GeneralSettingsPreview() {
 //        GeneralRootfsLang(lang, langOptions, { lang = it })
 //        GeneralShareDir(shareDirSet, onChangeShareDir)
         GeneralRootfsSelect(
-            "rootfs-3", rootfsToLoginUserMap, loginUsersOptions, { _, _, _ -> "" }, { _ -> }, { _, _ -> }, {})
+            currRootfs = "rootfs-3",
+            rootfsToLoginUserMap = rootfsToLoginUserMap,
+            loginUsersOptions = loginUsersOptions,
+            rootfsAliasMap = emptyMap(),
+            onRootfsNameChange = { _, _, _ -> },
+            onRootfsSelectChange = { },
+            onUserSelectChange = { _, _ -> },
+            onAliasChange = { _, _ -> },
+            navigateToNewRootfs = { }
+        )
     }
 }
 
