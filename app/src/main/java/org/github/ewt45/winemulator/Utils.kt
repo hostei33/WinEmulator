@@ -421,11 +421,10 @@ object Utils {
             if (foundRootfsDir == null)
                 throw RuntimeException("无法在解压内容中找到rootfs根目录（包含 etc usr 的文件夹）")
 
-            //确保目标目录没有同名文件夹. 序号优先使用原文件夹名已包含的序号
-            var (baseName, num) = "^(.+)-(\\d+)$".toRegex().matchEntire(foundRootfsDir.name)?.destructured
-                ?.run { Pair(component1(), component2().toInt()) } ?: Pair(foundRootfsDir.name, 1)
-            rootfsAllDir.list()?.let { while (it.contains("$baseName-$num")) num++ }
-            val targetOutDir = File(rootfsAllDir, "$baseName-$num")
+            //固定使用 rootfs-1, rootfs-2... 格式命名
+            var num = 1
+            rootfsAllDir.list()?.let { while (it.contains("rootfs-$num")) num++ }
+            val targetOutDir = File(rootfsAllDir, "rootfs-$num")
             reporter.msg("移动rootfs: $foundRootfsDir -> $targetOutDir")
 
             FileUtils.moveDirectory(foundRootfsDir, targetOutDir)
@@ -509,11 +508,10 @@ object Utils {
             if (foundRootfsDir == null)
                 throw RuntimeException("无法在解压内容中找到rootfs根目录（包含 etc usr 的文件夹）")
             
-            // 确保目标目录没有同名文件夹. 序号优先使用原文件夹名已包含的序号
-            var (baseName, num) = "^(.+)-(\\d+)$".toRegex().matchEntire(foundRootfsDir.name)?.destructured
-                ?.run { Pair(component1(), component2().toInt()) } ?: Pair(foundRootfsDir.name, 1)
-            rootfsAllDir.list()?.let { while (it.contains("$baseName-$num")) num++ }
-            val targetOutDir = File(rootfsAllDir, "$baseName-$num")
+            //固定使用 rootfs-1, rootfs-2... 格式命名
+            var num = 1
+            rootfsAllDir.list()?.let { while (it.contains("rootfs-$num")) num++ }
+            val targetOutDir = File(rootfsAllDir, "rootfs-$num")
             reporter.msg("移动rootfs: $foundRootfsDir -> $targetOutDir")
             
             FileUtils.moveDirectory(foundRootfsDir, targetOutDir)
