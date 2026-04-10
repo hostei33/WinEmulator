@@ -467,8 +467,11 @@ object Utils {
             reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(targetOutDir)
 
-            //创建默认别名文件
-            setAlias(targetOutDir, "rootfs-$num")
+            //检查是否存在别名文件，如果不存在则创建默认别名
+            val aliasFile = File(targetOutDir, ALIAS_FILE_NAME)
+            if (!aliasFile.exists()) {
+                setAlias(targetOutDir, "rootfs-$num")
+            }
 
             return@withContext targetOutDir
         }
@@ -556,8 +559,11 @@ object Utils {
             reporter.msg(null, "解压结束。正在做一些处理...")
             postExtractRootfs(targetOutDir)
 
-            //创建默认别名文件
-            setAlias(targetOutDir, "rootfs-$num")
+            //检查是否存在别名文件，如果不存在则创建默认别名
+            val aliasFile = File(targetOutDir, ALIAS_FILE_NAME)
+            if (!aliasFile.exists()) {
+                setAlias(targetOutDir, "rootfs-$num")
+            }
 
             return@withContext targetOutDir
         }

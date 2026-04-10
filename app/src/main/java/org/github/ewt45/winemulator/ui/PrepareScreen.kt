@@ -393,9 +393,10 @@ private fun RootfsSelect(
                 HorizontalDivider(Modifier.padding(16.dp), 2.dp)
                 Text("退出之前，您还可以编辑以下内容")
 
+                val rootfsAlias = Utils.Rootfs.getAlias(File(Consts.rootfsAllDir, rootfsName))
                 GeneralRootfsSelect_RootfsName(
                     rootfsName = rootfsName,
-                    rootfsAlias = rootfsName,
+                    rootfsAlias = rootfsAlias,
                     isCurr = false,
                     dialogState = dialogState,
                     onAliasChange = { _, _ -> },
