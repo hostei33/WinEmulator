@@ -179,9 +179,11 @@ class MainEmuActivity : MainActivity() {
             lifecycle.addObserver(EmuManager(lifecycleScope))
         }
         val LANG = general_rootfs_lang.get()
-        // 检查目标 locale 是否已生成，未生成则执行 locale-gen
-        val langBase = LANG.substringBefore('.')  // "zh_CN.utf8" -> "zh_CN"
-        terminalViewModel.runCommand("""if ! locale -a | grep -qi "$langBase"; then locale-gen $LANG; fi; export LANG=$LANG""")
+        // locale 生成逻辑：检查是否存在 -> 不存在则尝试 locale-gen -> 失败则尝试 localedef
+        // locale -a 输出格式不统一：zh_CN.utf8 / zh_CN.UTF8 / zh_CN.UTF-8，用正则匹配
+        val langBase = LANG.substringBefore('.')  // zh_CN
+        val charset = LANG.substringAfter('.')    // UTF-8
+        terminalViewModel.runCommand("locale -a | grep -qi '$langBase.*utf' || { locale-gen 2>/dev/null || localedef -i $langBase -f $charset $LANG 2>/dev/null; }; export LANG=$LANG")
         //这里还不能用state因为state第一次获取的是默认值而非datastore来的值
         proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let {
             terminalViewModel.runCommand("$it &")
