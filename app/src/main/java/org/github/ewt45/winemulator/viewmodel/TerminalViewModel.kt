@@ -1,186 +1,202 @@
 package org.github.ewt45.winemulator.viewmodel
 
-import android.system.OsConstants.SIGCONT
-import android.system.OsConstants.SIGSTOP
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineScope
+import com.termux.terminal.TerminalSession
+import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.github.ewt45.winemulator.Utils.getPid
+import org.github.ewt45.winemulator.Consts
 import org.github.ewt45.winemulator.emu.Proot
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
+import java.io.File
 
 class TerminalViewModel : ViewModel() {
     private val TAG = "TerminalViewModel"
-    private val terminal: Proot = Proot()
-    private var process: Process? = null
 
-    /** 输入 */
-    private var processWriter: OutputStreamWriter? = null
+    /** 当前的终端会话 */
+    var session: TerminalSession? = null
+        private set
 
-    /** 输出行。每个字符串代表一行，换行字符包括在字符串结尾，拼接时不应再添加 */
-    val output = mutableStateListOf<String>()
-    private val outputMutex = Mutex() //锁，修改output相关内容时应该使用
+    /** SessionClient 回调，由外部设置 */
+    var sessionClient: TerminalSessionClient? = null
+
+    /** 会话是否运行中 */
+    val isRunning: Boolean
+        get() = session?.isRunning == true
 
     /**
-     * 启动终端
+     * 启动终端会话
+     * @param sessionClient TerminalSessionClient 回调
+     * @return 启动成功返回 session，失败返回 null
      */
-    suspend fun startTerminal() {
-        if (process != null) return
-        process = withContext(Dispatchers.IO) {
-            terminal.attach().start()
+    suspend fun startTerminal(sessionClient: TerminalSessionClient): TerminalSession? {
+        if (session?.isRunning == true) {
+            Log.w(TAG, "终端会话已在运行")
+            return session
         }
 
-        //绑定输入输出
-        processWriter = OutputStreamWriter(process!!.outputStream)
+        this.sessionClient = sessionClient
 
-        //另起协程获取输出以及等待关闭
-        viewModelScope.launch(Dispatchers.IO) {
-            output.add("终端开始运行\n")
+        return withContext(Dispatchers.IO) {
             try {
-                BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
-                    val builder = StringBuilder()
-                    var readInt: Int
-                    var charRead: Char
-                    var lastReadCharTime = 0L //上次读取到新输出字符的时间。即使不完成整行 也会更新
-                    //builder lastUpdateTime output 应该在锁下进行
+                val prootProcessBuilder = Proot().attach()
+                val envMap = prootProcessBuilder.environment()
 
-                    // FIXME adduser 最后一条确认没显示出来？
-                    val updateInlineOutputJob = launch {
-                        var lastReadCharTimeCopy = 0L
-                        while (process?.isAlive == true) {
-                            delay(500)
-                            outputMutex.withLock {
-//                                    Log.d(TAG, "startTerminal: 检测缓存字符串：${lastReadCharTime == lastReadCharTimeCopy} ${builder.isNotEmpty()} 字符串=${builder.toString()}")
-                                // 如果500ms内字符输出没有更新过，则将当前缓存的无换行字符串显示出来。
-                                if (lastReadCharTime == lastReadCharTimeCopy && lastReadCharTimeCopy != 0L && builder.isNotEmpty()) {
-                                    val lastLine = output.lastOrNull()
-                                    if (lastLine?.endsWith('\n') != false) output.add(builder.toString())
-                                    else output[output.lastIndex] = lastLine + builder.toString()
-                                    builder.clear()
-                                }
-                                lastReadCharTimeCopy = lastReadCharTime
-                            }
-                        }
-                    }
-                    while (reader.read().also { readInt = it } != -1) {
-                        charRead = readInt.toChar()
-                        outputMutex.withLock {
-                            lastReadCharTime = System.currentTimeMillis()
-                            builder.append(charRead)
-                            if (charRead == '\n') {
-                                output.takeIf { it.size > 800 }?.removeRange(0, 400)
-                                output.add(builder.toString())
-                                builder.clear()
-                            }
-                        }
-                    }
-                    updateInlineOutputJob.cancel()
+                // 构建环境变量数组
+                val env = envMap.map { "${it.key}=${it.value}" }.toTypedArray()
+
+                // 获取工作目录
+                val cwd = prootProcessBuilder.directory().absolutePath
+
+                // 构建命令 - 使用 proot 启动 shell
+                val prootCmd = mutableListOf(
+                    Consts.prootBin.absolutePath,
+                    *Consts.Pref.proot_bool_options.get().toTypedArray(),
+                )
+
+                // 从原始命令中提取 proot 参数
+                val originalCmd = prootProcessBuilder.command()
+                if (originalCmd.size >= 3 && originalCmd[0] == "sh" && originalCmd[1] == "-c") {
+                    // 解析 proot 命令
+                    val cmdStr = originalCmd[2]
+                    Log.d(TAG, "startTerminal: proot 命令: $cmdStr")
                 }
-                // 旧方法 直接按行读取
-//                    BufferedReader(InputStreamReader(process!!.inputStream)).use { reader ->
-//                        var line: String?
-//                        while (reader.readLine().also { line = it } != null) {
-//                            output.takeIf { it.size > 800 }?.removeRange(0, 400)
-//                            output.add(line!!)
-//                        }
-//                    }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            process?.waitFor()
-            closeResources()
-        }
 
-        if (Proot.lastTimeCmd.isNotBlank())
-            output.add("使用以下参数启动proot：\n${Proot.lastTimeCmd}\n\n")
-        return
+                // 直接使用 ProcessBuilder 的命令
+                val process = prootProcessBuilder.start()
+
+                // 创建 TerminalSession，连接到 proot 进程
+                // 注意：TerminalSession 需要一个可执行的 shell 路径
+                // 我们这里使用 proot 启动的进程
+                val rootfs = Consts.rootfsCurrDir
+                val userInfo = org.github.ewt45.winemulator.emu.ProotRootfs.getPreferredUser(rootfs.canonicalFile.name)
+
+                // 使用 proot 命令作为 shell
+                val shellPath = userInfo.shell
+
+                session = TerminalSession(
+                    shellPath,           // executablePath: shell 路径
+                    cwd,                 // workingPath: 工作目录
+                    env,                 // env: 环境变量
+                    sessionClient,       // sessionClient: 回调
+                    Proot.lastTimeCmd    // initialCommand: 初始命令（用于显示）
+                ).also {
+                    Log.d(TAG, "终端会话已创建: ${it.isRunning}")
+                }
+
+                session
+            } catch (e: Exception) {
+                Log.e(TAG, "启动终端失败", e)
+                null
+            }
+        }
     }
 
     /**
-     * 执行某个命令
-     * @param display 为false时不显示在屏幕上
+     * 创建连接到 proot 进程的终端会话
+     * @param sessionClient TerminalSessionClient 回调
+     * @param prootCmd proot 完整命令
+     * @param env 环境变量
+     * @param cwd 工作目录
      */
-    fun runCommand(command: String, display: Boolean = true) = viewModelScope.launch(Dispatchers.IO) {
-
-        if (processWriter == null || process?.isAlive != true) {
-            output.add("进程已关闭。无法执行命令 $command。\n")
+    fun createSession(
+        sessionClient: TerminalSessionClient,
+        prootCmd: Array<String>,
+        env: Array<String>,
+        cwd: String
+    ) {
+        if (session?.isRunning == true) {
+            Log.w(TAG, "终端会话已在运行，先停止")
             stopTerminal()
-            return@launch
         }
 
-        outputMutex.takeIf { display }?.withLock {
-            val shouldNewLine = output.lastOrNull()?.endsWith('\n') ?: true
-            output.add((if (shouldNewLine) "$ " else "") + "$command\n") //如果当前未换行则添加到当前行结尾，否则新起一行
-        }
+        this.sessionClient = sessionClient
 
         try {
-            // 添加回车，否则不会执行
-            processWriter?.write(command + "\n")
-            // 确保命令立刻发送
-            processWriter?.flush()
+            // 使用第一个命令作为 shell (通常是 proot)
+            val shellPath = prootCmd.firstOrNull() ?: "/system/bin/sh"
+
+            session = TerminalSession(
+                shellPath,
+                cwd,
+                env,
+                sessionClient,
+                null // initialCommand
+            )
+
+            Log.d(TAG, "终端会话已创建: shell=$shellPath, cwd=$cwd")
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "创建终端会话失败", e)
         }
     }
 
     /**
-     * 结束终端
+     * 执行命令（写入到终端）
+     */
+    fun runCommand(command: String) {
+        val s = session ?: run {
+            Log.w(TAG, "终端会话未启动")
+            return
+        }
+
+        if (!s.isRunning) {
+            Log.w(TAG, "终端会话未运行")
+            return
+        }
+
+        // 写入命令 + 换行符
+        command.forEach { char ->
+            s.write(char.code)
+        }
+        s.write('\n'.code)
+    }
+
+    /**
+     * 写入单个字符到终端
+     */
+    fun write(codePoint: Int) {
+        session?.write(codePoint)
+    }
+
+    /**
+     * 写入字符串到终端
+     */
+    fun write(text: String) {
+        text.forEach { char ->
+            session?.write(char.code)
+        }
+    }
+
+    /**
+     * 停止终端会话
      */
     fun stopTerminal() {
-//        viewModelScope.launch(Dispatchers.IO) {
-//        }
-        closeResources()
+        session?.finishIfRunning()
+        session = null
+        sessionClient = null
+        Log.d(TAG, "终端会话已停止")
     }
 
     /**
-     * 清理资源
+     * 暂停终端
      */
-    private fun closeResources() {
-        try {
-            processWriter?.close()
-            process?.outputStream?.close()
-            process?.inputStream?.close()
-            process?.errorStream?.close()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        try {
-            process?.destroy()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        process = null
-        processWriter = null
+    fun pauseTerminal() {
+        // TerminalSession 没有直接的暂停方法
+        // 可以通过发送 SIGSTOP 信号实现
+        Log.d(TAG, "pauseTerminal: 暂停功能待实现")
     }
 
-
     /**
-     * viewModel销毁时结束终端
+     * 恢复终端
      */
+    fun resumeTerminal() {
+        Log.d(TAG, "resumeTerminal: 恢复功能待实现")
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopTerminal()
-    }
-
-    fun pauseTerminal() {
-        val pid = process?.getPid() ?: -1
-        android.os.Process.sendSignal(pid, SIGSTOP)
-//        Runtime.getRuntime().exec(arrayOf("kill", "-STOP", "$pid"))
-    }
-
-    fun resumeTerminal() {
-        val pid = process?.getPid() ?: -1
-        android.os.Process.sendSignal(pid, SIGCONT)
-//        Runtime.getRuntime().exec(arrayOf("kill", "-STOP", "$pid"))
     }
 }

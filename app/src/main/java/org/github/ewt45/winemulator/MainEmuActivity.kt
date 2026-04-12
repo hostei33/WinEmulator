@@ -172,7 +172,7 @@ class MainEmuActivity : MainActivity() {
             mainViewModel.showConfirmDialog("rootfs下缺少xkb文件夹，x11不会启动。可以安装类似 ' libxkbcommon-x11 ' 的软件包来补全。")
         }
 
-        terminalViewModel.startTerminal()
+        terminalViewModel.startTerminal(sessionClient)
         // TODO 全部移到emuManager后，改为在init添加观察者，但是onCreate不启动，而是在startEmu中手动启动
         //添加observer时会立刻发送一遍从头到现在的状态，所以onCreate会触发
         withContext(Dispatchers.Main) {

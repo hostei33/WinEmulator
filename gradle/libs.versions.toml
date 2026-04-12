@@ -50,6 +50,7 @@ com-github-luben-zstd-jni = { module = "com.github.luben:zstd-jni", version.ref 
 
 # com.github.termux.termux-app 可以， com.termux.termux-app 会401
 com-termux-terminal-view = { module = "com.github.termux.termux-app:terminal-view", version.ref = "termux" }
+com-termux-terminal-emulator = { module = "com.github.termux.termux-app:terminal-emulator", version.ref = "termux" }
 com-termux-termux-shared = { module = "com.github.termux.termux-app:termux-shared", version.ref = "termux" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }

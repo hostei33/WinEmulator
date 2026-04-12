@@ -138,8 +138,7 @@ fun MainScreen(
                 }
                 composable<RouteX11> { X11Screen(tx11Content, navigateTo) }
                 navigation<RouteExceptX11>(startDestination = RouteTerminal) {
-                    composable<RouteTerminal> { ProotTerminalScreen(terminalVm) }
-//                        composable<NavDest.Terminal> { TerminalScreen() }
+                    composable<RouteTerminal> { TerminalScreen() }
                     composable<RouteSettings> { SettingScreen(settingVm, terminalVm, prepareVm, navigateTo) }
                 }
             }
@@ -344,8 +343,7 @@ private fun MainScreenPreview() {
                     composable<RoutePrepare> { PrepareScreenPreview() }
                     composable<RouteX11> { X11ScreenPreview() }
                     navigation<RouteExceptX11>(startDestination = RouteTerminal) {
-                        composable<RouteTerminal> { ProotTerminalScreenPreview() }
-//                        composable<NavDest.Terminal> { TerminalScreenPreview() }
+                        composable<RouteTerminal> { TerminalScreenPreview() }
                         composable<RouteSettings> { SettingScreenPreview() }
                     }
                 }

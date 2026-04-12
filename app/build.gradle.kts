@@ -79,8 +79,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     //termux 终端 。。。jitpack真是垃圾啊
-    implementation(libs.com.termux.terminal.view )
-    implementation(libs.com.termux.termux.shared )
+    implementation(libs.com.termux.terminal.view)
+    implementation(libs.com.termux.terminal.emulator)
+    implementation(libs.com.termux.termux.shared)
     implementation(libs.com.google.guava.listenablefuture)
 
     //termux-x11
