@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,6 +42,7 @@ private fun TerminalScreenImpl(
 ) {
     var viewWidth by remember { mutableIntStateOf(0) }
     var viewHeight by remember { mutableIntStateOf(0) }
+    val session = getSession()
 
     Column(
         Modifier
@@ -50,48 +52,52 @@ private fun TerminalScreenImpl(
                 viewHeight = size.height
             },
     ) {
-        AndroidView(
-            factory = { ctx ->
-                TerminalView(ctx, null).apply {
-                    getViewClient()?.let { setTerminalViewClient(it) }
-                    isFocusableInTouchMode = true
-                    isVerticalScrollBarEnabled = true
-                    
-                    // 监听视图树布局变化，自动更新终端尺寸
-                    addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
-                        val newWidth = right - left
-                        val newHeight = bottom - top
-                        if (newWidth > 0 && newHeight > 0 && (newWidth != oldRight - oldLeft || newHeight != oldBottom - oldTop)) {
-                            android.util.Log.d(TAG, "布局变化，更新终端尺寸: ${newWidth}x${newHeight}")
-                            currentSession?.let {
+        // 使用 key 确保当 session 为 null 时完全移除 AndroidView
+        // 这可以避免 TerminalView 在 onSizeChanged 时访问空状态
+        key(session) {
+            session?.let { currentSession ->
+                AndroidView(
+                    factory = { ctx ->
+                        TerminalView(ctx, null).apply {
+                            getViewClient()?.let { setTerminalViewClient(it) }
+                            isFocusableInTouchMode = true
+                            isVerticalScrollBarEnabled = true
+                            
+                            // 监听视图树布局变化，自动更新终端尺寸
+                            addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                                val newWidth = right - left
+                                val newHeight = bottom - top
+                                if (newWidth > 0 && newHeight > 0 && (newWidth != oldRight - oldLeft || newHeight != oldBottom - oldTop)) {
+                                    android.util.Log.d(TAG, "布局变化，更新终端尺寸: ${newWidth}x${newHeight}")
+                                    currentSession?.let {
+                                        try {
+                                            updateSize()
+                                        } catch (e: Exception) {
+                                            android.util.Log.e(TAG, "更新终端尺寸失败", e)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    update = { view ->
+                        // 当 session 变化时，更新 TerminalView 的 session
+                        if (view.currentSession != currentSession) {
+                            android.util.Log.d(TAG, "绑定新的 TerminalSession")
+                            view.attachSession(currentSession)
+                            // 绑定后根据当前视图大小更新终端
+                            if (viewWidth > 0 && viewHeight > 0) {
                                 try {
-                                    updateSize()
+                                    view.updateSize()
                                 } catch (e: Exception) {
                                     android.util.Log.e(TAG, "更新终端尺寸失败", e)
                                 }
                             }
                         }
                     }
-                }
-            },
-            update = { view ->
-                // 当 session 变化时，更新 TerminalView 的 session
-                getSession()?.let { session ->
-                    if (view.currentSession != session) {
-                        android.util.Log.d(TAG, "绑定新的 TerminalSession")
-                        view.attachSession(session)
-                        // 绑定后根据当前视图大小更新终端
-                        if (viewWidth > 0 && viewHeight > 0) {
-                            try {
-                                view.updateSize()
-                            } catch (e: Exception) {
-                                android.util.Log.e(TAG, "更新终端尺寸失败", e)
-                            }
-                        }
-                    }
-                }
+                )
             }
-        )
+        }
     }
 }
 
