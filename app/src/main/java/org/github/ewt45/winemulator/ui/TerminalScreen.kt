@@ -1,11 +1,11 @@
 package org.github.ewt45.winemulator.ui
 
+import android.util.AttributeSet
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,13 +35,11 @@ private fun TerminalScreenImpl(
     viewClient: ViewClientImpl,
     terminalViewModel: org.github.ewt45.winemulator.viewmodel.TerminalViewModel,
 ) {
-    // 终端视图引用
-    val terminalViewRef = remember { mutableMapOf<String, TerminalView>() }
-
     Column(Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
-                TerminalView(ctx).apply {
+                // TerminalView 需要 context 和 attributes 参数
+                TerminalView(ctx, null).apply {
                     // 设置 ViewClient
                     setTerminalViewClient(viewClient)
 
@@ -52,9 +50,6 @@ private fun TerminalScreenImpl(
 
                     // 绑定到 sessionClient
                     sessionClient.terminalView = this
-
-                    // 保存引用
-                    terminalViewRef["view"] = this
 
                     // 绑定已有的 session
                     terminalViewModel.session?.let { session ->
@@ -72,7 +67,6 @@ private fun TerminalScreenImpl(
             onRelease = { view ->
                 // 清理
                 sessionClient.terminalView = null
-                terminalViewRef.clear()
             }
         )
     }
@@ -89,7 +83,5 @@ private fun TerminalScreenImpl(
 @Composable
 fun TerminalScreenPreview() {
     // Preview 模式不显示实际终端
-    Column(Modifier.fillMaxSize()) {
-        // 可以显示占位符
-    }
+    Column(Modifier.fillMaxSize()) {}
 }
