@@ -24,7 +24,6 @@ import org.github.ewt45.winemulator.emu.Proot
 import org.github.ewt45.winemulator.emu.ProotHelper
 import org.github.ewt45.winemulator.emu.ProotRootfs
 import java.io.File
-import java.nio.charset.StandardCharsets
 
 class TerminalViewModel : ViewModel() {
     private val TAG = "TerminalViewModel"
@@ -38,22 +37,50 @@ class TerminalViewModel : ViewModel() {
 
     /**
      * 启动终端
+     * 注意：TerminalSession 构造函数内部会创建 Handler，必须在主线程执行
      */
-    suspend fun startTerminal(sessionClient: TerminalSessionClient) = withContext(Dispatchers.IO) {
+    suspend fun startTerminal(sessionClient: TerminalSessionClient) {
         if (session != null) {
             stopTerminal()
         }
-        
+
+        // 准备工作在 IO 线程执行
+        val sessionData = withContext(Dispatchers.IO) {
+            prepareSessionData()
+        }
+
+        // 创建 TerminalSession 必须在主线程
+        withContext(Dispatchers.Main) {
+            session = TerminalSession(
+                "/system/bin/sh",           // shell 路径
+                sessionData.cwd,            // 工作目录
+                arrayOf("-c", sessionData.fullCommand),  // 参数
+                sessionData.envVars,        // 环境变量
+                2000,                       // 回滚行数
+                sessionClient               // TerminalSessionClient 回调
+            )
+
+            // 设置终端初始尺寸，触发进程启动
+            session?.updateSize(120, 40)
+
+            Log.d(TAG, "终端会话已创建")
+        }
+    }
+
+    /**
+     * 准备会话数据（在 IO 线程执行）
+     */
+    private fun prepareSessionData(): SessionData {
         val rootfs = Consts.rootfsCurrDir
         val tmpdir = Consts.tmpDir
         val lang = general_rootfs_lang.get()
-        
+
         // 获取用户信息
         val userInfo = ProotRootfs.getPreferredUser(rootfs.canonicalFile.name)
-        
+
         // 设置 fake data
         ProotHelper.setup_fake_data()
-        
+
         // 构建 proot 命令
         val prootCmd = mutableListOf(
             Consts.prootBin.absolutePath,
@@ -85,7 +112,7 @@ class TerminalViewModel : ViewModel() {
         // 再次设置 fake data 并绑定 selinux
         ProotHelper.setup_fake_data()
         prootCmd.add("--bind=${rootfs.absolutePath}/sys/.empty:/sys/fs/selinux")
-        
+
         // 添加 proc 文件的绑定（如果原生 /proc 无法读取）
         prootCmd.addAll(
             mapOf(
@@ -98,7 +125,7 @@ class TerminalViewModel : ViewModel() {
                 "/proc/.sysctl_inotify_max_user_watches" to "/proc/sys/fs/inotify/max_user_watches",
             ).mapNotNull { bindIfNotReadable(rootfs, it.key, it.value) }
         )
-        
+
         // 添加共享文件夹绑定（清理可能存在的符号链接）
         prootCmd.addAll(general_shared_ext_path.get().map { bindPath ->
             File(rootfs, bindPath).runCatching { takeIf { FileUtils.isSymlink(it) }?.delete() }
@@ -107,17 +134,17 @@ class TerminalViewModel : ViewModel() {
 
         // 构建环境变量
         val loginEnvs = org.github.ewt45.winemulator.emu.EnvMap()
-        
+
         // 读取 rootfs 中的 /etc/environment 文件
         readEtcEnvironment(rootfs, loginEnvs)
-        
+
         loginEnvs.put("LANG", lang, true)
         loginEnvs.put("HOME", userInfo.home, true)
         loginEnvs.put("USER", userInfo.name, true)
         loginEnvs.put("TMPDIR", "/tmp", true)
         loginEnvs.put("DISPLAY", ":13", true)
         loginEnvs.put("PULSE_SERVER", "tcp:127.0.0.1:4713", true)
-        
+
         // 构建最终的 shell 命令
         val shellCmd = mutableListOf(
             "/usr/bin/env",
@@ -125,43 +152,40 @@ class TerminalViewModel : ViewModel() {
             *loginEnvs.toArray(),
             userInfo.shell, "-l",
         )
-        
+
         // 添加用户自定义启动命令
         proot_startup_cmd.get().takeIf { it.isNotBlank() }?.let { cmd ->
             shellCmd.addAll(listOf("-c", "$cmd &"))
         }
-        
+
         prootCmd.addAll(shellCmd)
-        
+
         val fullCommand = prootCmd.joinToString(" ")
         Log.d(TAG, "startTerminal: $fullCommand")
-        
+
         // 环境变量（传递给 sh 进程）
-        val envVars = listOf(
+        val envVars = arrayOf(
             "PROOT_TMP_DIR=${Consts.tmpDir.absolutePath}",
             "LD_PRELOAD=",
         )
-        
-        // 工作目录
-        val cwd = rootfs.absolutePath
-        
-        // 创建 TerminalSession
-        // 构造函数参数: (shellPath, cwd, args, env, transcriptRows, client)
-        session = TerminalSession(
-            "/system/bin/sh",  // shell 路径
-            cwd,               // 工作目录
-            arrayOf("-c", fullCommand),  // 参数：-c 和命令
-            envVars.toTypedArray(),  // 环境变量
-            2000,              // 回滚行数
-            sessionClient      // TerminalSessionClient 回调
+
+        Proot.lastTimeCmd = "sh -c \n" + prootCmd.joinToString(" \n")
+
+        return SessionData(
+            cwd = rootfs.absolutePath,
+            fullCommand = fullCommand,
+            envVars = envVars
         )
-        
-        // 设置终端初始尺寸，触发进程启动
-        session?.updateSize(120, 40)
-        
-        Proot.lastTimeCmd = "sh -c \\n" + prootCmd.joinToString(" \\n")
-        Log.d(TAG, "使用以下参数启动proot: $fullCommand")
     }
+
+    /**
+     * 会话数据
+     */
+    private data class SessionData(
+        val cwd: String,
+        val fullCommand: String,
+        val envVars: Array<String>
+    )
 
     /**
      * 读取/etc/environment下的环境变量 并添加到 [envMap]
@@ -172,7 +196,7 @@ class TerminalViewModel : ViewModel() {
                 val line = l.trim()
                 line.takeIf { !line.startsWith('#') && line.contains('=') }?.let {
                     val split = line.split("=", limit = 2)
-                    envMap.put(split[0], split[1].trim('\"'))
+                    envMap.put(split[0], split[1].trim('"'))
                 }
             }
         } catch (e: Exception) {
