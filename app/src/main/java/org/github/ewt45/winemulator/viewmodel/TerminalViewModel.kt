@@ -70,7 +70,7 @@ class TerminalViewModel : ViewModel() {
     /**
      * 准备会话数据（在 IO 线程执行）
      */
-    private fun prepareSessionData(): SessionData {
+    private suspend fun prepareSessionData(): SessionData {
         val rootfs = Consts.rootfsCurrDir
         val tmpdir = Consts.tmpDir
         val lang = general_rootfs_lang.get()
