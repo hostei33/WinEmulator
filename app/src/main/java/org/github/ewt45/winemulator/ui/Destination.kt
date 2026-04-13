@@ -39,8 +39,16 @@ enum class Destination(
     Settings(
         "设置",
         RouteSettings,
+    ),
+
+    Termux(
+        "Termux",
+        RouteTermux,
     )
 }
+
+@Serializable
+data object RouteTermux
 
 /** 显示在appbar中的tab */
 val appbarDestList = listOf(Destination.Terminal, Destination.Settings)
