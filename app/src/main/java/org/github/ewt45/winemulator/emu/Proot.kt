@@ -111,7 +111,7 @@ class Proot {
 
         // 写临时脚本文件，避免命令行参数太长
         val scriptFile = File(tmpDir, "proot_start.sh")
-        scriptFile.writeText("#!/bin/sh\nexec " + prootCmdPart.joinToString(" ") { 
+        scriptFile.writeText("#!/system/bin/sh\nexec " + prootCmdPart.joinToString(" ") { 
             // 对包含特殊字符的参数加引号
             if (it.contains(" ") || it.contains("'") || it.contains("\"")) "'${it.replace("'", "'\"'\"'")}'"
             else it
@@ -121,8 +121,8 @@ class Proot {
         lastTimeCmd = prootCmdPart.joinToString(" ")
         Log.d(TAG, "attach: 最终命令=$lastTimeCmd")
 
-        // 用 sh 执行脚本
-        val finalCommand = listOf("/bin/sh", scriptFile.absolutePath)
+        // 用 Android 的 sh 执行脚本（脚本文件在 Android 文件系统中）
+        val finalCommand = listOf("/system/bin/sh", scriptFile.absolutePath)
 
         return@withContext ProcessBuilder(finalCommand)
             .directory(rootfs)
