@@ -60,7 +60,16 @@ class Proot {
         prootArgs.addAll(listOf(
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
             "--rootfs=${rootfs.absolutePath}",
-            "--change-id=${userInfo.uid}:${userInfo.gid}",  // 关键：包含 gid
+        ))
+
+        // 关键：-0 等效于 --change-id=0:0，两者不能同时使用
+        // root 用户：使用 -0（已在上方添加），不需要 --change-id
+        // 非 root 用户：使用 --change-id
+        if (userInfo.uid != 0L || "-0" !in options) {
+            prootArgs.add("--change-id=${userInfo.uid}:${userInfo.gid}")
+        }
+
+        prootArgs.addAll(listOf(
             "--cwd=${userInfo.home}",  // proot 容器内初始工作目录
             "--bind=${tmpDir.absolutePath}:/tmp",
             "--bind=${rootfs.absolutePath}/tmp:/dev/shm",
