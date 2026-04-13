@@ -16,10 +16,6 @@ import java.nio.charset.StandardCharsets
 class Proot {
     private val TAG = "Proot"
 
-    /** proot 容器内用户的 home 目录，用于 TerminalSession 的 cwd */
-    var containerCwd = "/"
-        private set
-
     suspend fun attach(): ProcessBuilder = withContext(Dispatchers.IO) {
         val rootfs = Consts.rootfsCurrDir
         val prootBin = Consts.prootBin
@@ -36,9 +32,6 @@ class Proot {
         
         val userInfo = ProotRootfs.getPreferredUser(rootfs.canonicalFile.name)
         Log.d(TAG, "启动 Proot，目标用户: ${userInfo.name} (UID: ${userInfo.uid}, GID: ${userInfo.gid})")
-        
-        // 记录容器内的 cwd（proot 容器内的路径，不是 Android 路径）
-        containerCwd = userInfo.home
 
         // 确保用户的 HOME 目录在 rootfs 中存在并有正确权限
         val homeDir = File(rootfs, userInfo.home)
@@ -54,7 +47,22 @@ class Proot {
         // 1. 核心参数 - 使用用户设置的 proot 参数
         val prootArgs = mutableListOf(
             prootBin.absolutePath,
-            *proot_bool_options.get().toTypedArray(),  // 用户自定义参数
+        )
+        
+        // 处理 proot_bool_options，过滤掉与 --change-id 冲突的 -0 参数
+        val options = proot_bool_options.get().toMutableSet()
+        // -0 等效于 --change-id=0:0，与下面显式设置的 --change-id 冲突
+        options.remove("-0")
+        // 移除重复的 --link2symlink（-L 是其别名）
+        options.remove("-L")
+        prootArgs.addAll(options)
+        
+        // 只有 root 用户才需要 -0 参数（启用 root 映射）
+        if (userInfo.uid == 0L) {
+            prootArgs.add(0, "-0")
+        }
+        
+        prootArgs.addAll(listOf(
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
             "--rootfs=${rootfs.absolutePath}",
             "--change-id=${userInfo.uid}:${userInfo.gid}",  // 关键：包含 gid

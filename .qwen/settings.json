@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/data/data/com.termux/files/home/linbox-winemu/app/src/main/assets/proot *)"
+    ]
+  }
+}
