@@ -99,10 +99,9 @@ class Proot {
         loginEnvs.put("SHELL", userInfo.shell, true)
         loginEnvs.put("PROOT_NO_SECCOMP", "1", true)
 
-        // 3. 组装最终命令
-        val finalCommand = mutableListOf<String>().apply {
+        // 3. 组装 proot 命令部分
+        val prootCmdPart = mutableListOf<String>().apply {
             addAll(prootArgs)
-            add("--")  // 分隔符，明确分隔 proot 选项和要执行的命令
             add("/usr/bin/env")
             add("-i")  // 彻底清除宿主环境变量污染
             loginEnvs.toArray().forEach { add(it) }
@@ -110,8 +109,20 @@ class Proot {
             add("-l")  // 登录模式，加载 /etc/profile 等
         }
 
-        lastTimeCmd = finalCommand.joinToString(" ")
+        // 写临时脚本文件，避免命令行参数太长
+        val scriptFile = File(tmpDir, "proot_start.sh")
+        scriptFile.writeText("#!/bin/sh\nexec " + prootCmdPart.joinToString(" ") { 
+            // 对包含特殊字符的参数加引号
+            if (it.contains(" ") || it.contains("'") || it.contains("\"")) "'${it.replace("'", "'\"'\"'")}'"
+            else it
+        } + "\n")
+        scriptFile.setExecutable(true)
+
+        lastTimeCmd = prootCmdPart.joinToString(" ")
         Log.d(TAG, "attach: 最终命令=$lastTimeCmd")
+
+        // 用 sh 执行脚本
+        val finalCommand = listOf("/bin/sh", scriptFile.absolutePath)
 
         return@withContext ProcessBuilder(finalCommand)
             .directory(rootfs)
