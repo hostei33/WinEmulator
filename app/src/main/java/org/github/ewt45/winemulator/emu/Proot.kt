@@ -102,6 +102,7 @@ class Proot {
         // 3. 组装最终命令
         val finalCommand = mutableListOf<String>().apply {
             addAll(prootArgs)
+            add("--")  // 分隔符，明确分隔 proot 选项和要执行的命令
             add("/usr/bin/env")
             add("-i")  // 彻底清除宿主环境变量污染
             loginEnvs.toArray().forEach { add(it) }
