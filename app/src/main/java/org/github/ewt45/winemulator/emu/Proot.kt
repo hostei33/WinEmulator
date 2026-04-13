@@ -44,23 +44,18 @@ class Proot {
         homeDir.setWritable(true, false)
         homeDir.setExecutable(true, false)
 
-        // 1. 核心参数 - 使用用户设置的 proot 参数
+        // 1. 核心参数 - 严格按顺序添加，避免参数顺序问题
         val prootArgs = mutableListOf(
             prootBin.absolutePath,
         )
-        
-        // 处理 proot_bool_options，过滤掉与 --change-id 冲突的 -0 参数
-        val options = proot_bool_options.get().toMutableSet()
-        // -0 等效于 --change-id=0:0，与下面显式设置的 --change-id 冲突
-        options.remove("-0")
-        // 移除重复的 --link2symlink（-L 是其别名）
-        options.remove("-L")
-        prootArgs.addAll(options)
 
-        // 只有 root 用户才需要 -0 参数（启用 root 映射）
-        if (userInfo.uid == 0L) {
-            prootArgs.add(1, "-0")  // 放在 prootBin 之后，参数之前
-        }
+        val options = proot_bool_options.get()
+
+        // 按固定顺序添加参数（不使用 Set，确保顺序稳定）
+        if ("-0" in options) prootArgs.add("-0")
+        if ("--link2symlink" in options || "-L" in options) prootArgs.add("--link2symlink")
+        if ("--sysvipc" in options) prootArgs.add("--sysvipc")
+        if ("--kill-on-exit" in options) prootArgs.add("--kill-on-exit")
 
         prootArgs.addAll(listOf(
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
@@ -144,6 +139,7 @@ class Proot {
                 it.environment().clear()  // 清除 Android 环境变量污染
                 it.environment()["PROOT_TMP_DIR"] = tmpDir.absolutePath
                 it.environment()["PROOT_NO_SECCOMP"] = "1"
+                it.environment()["PROOT_L2S_DIR"] = rootfsCurrL2sDir.absolutePath  // link2symlink 目录
                 it.environment()["LD_PRELOAD"] = ""  // 防止库冲突
             }
             .redirectErrorStream(true)
