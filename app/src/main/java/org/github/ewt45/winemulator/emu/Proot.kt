@@ -83,11 +83,9 @@ class Proot {
             "--bind=$bindPath"
         })
 
-        // 2. 构建环境变量 - 先读取 /etc/environment
+        // 2. 构建环境变量 - 只设置必要的环境变量（不读取 /etc/environment 以减少参数长度）
         val loginEnvs = EnvMap()
-        readEtcEnvironment(rootfs, loginEnvs)
-        
-        // 覆盖/添加必要的环境变量
+        loginEnvs.put("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games", true)
         loginEnvs.put("LANG", lang, true)
         loginEnvs.put("HOME", userInfo.home, true)
         loginEnvs.put("USER", userInfo.name, true)
