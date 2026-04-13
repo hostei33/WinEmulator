@@ -99,8 +99,8 @@ class Proot {
         loginEnvs.put("SHELL", userInfo.shell, true)
         loginEnvs.put("PROOT_NO_SECCOMP", "1", true)
 
-        // 3. 组装最终命令
-        val finalCommand = mutableListOf<String>().apply {
+        // 3. 组装 proot 命令部分
+        val prootCmdPart = mutableListOf<String>().apply {
             addAll(prootArgs)
             add("/usr/bin/env")
             add("-i")  // 彻底清除宿主环境变量污染
@@ -109,7 +109,10 @@ class Proot {
             add("-l")  // 登录模式，加载 /etc/profile 等
         }
 
-        lastTimeCmd = finalCommand.joinToString(" ")
+        // 使用 sh -c 包装（之前能工作的方式）
+        val finalCommand = mutableListOf("sh", "-c", prootCmdPart.joinToString(" "))
+
+        lastTimeCmd = "sh -c \\\n" + prootCmdPart.joinToString(" \\\n")
         Log.d(TAG, "attach: 最终命令=$lastTimeCmd")
 
         return@withContext ProcessBuilder(finalCommand)
