@@ -50,6 +50,20 @@ class Proot {
             "--bind=/dev",
         )
 
+        // 显式清除 Android 环境变量，防止污染 proot 环境
+        listOf(
+            "ANDROID_ROOT",
+            "ANDROID_DATA",
+            "ANDROID_I18N_ROOT",
+            "ANDROID_TZDATA_ROOT",
+            "ANDROID_ART_ROOT",
+            "ANDROID_SDK_ROOT",
+            "EXTERNAL_STORAGE",
+            "BOOTCLASSPATH",
+            "DEX2OATBOOTCLASSPATH",
+            "MOZ_FAKE_NO_SANDBOX"
+        ).forEach { prootArgs.add("--env=$it=") }
+
         // 绑定标准文件描述符（如果不存在）
         File("/dev/stderr").takeIf { !it.exists() }?.let {
             prootArgs.add("--bind=/proc/self/fd/2:/dev/stderr")
