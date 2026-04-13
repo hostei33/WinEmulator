@@ -56,12 +56,12 @@ class Proot {
         // 移除重复的 --link2symlink（-L 是其别名）
         options.remove("-L")
         prootArgs.addAll(options)
-        
+
         // 只有 root 用户才需要 -0 参数（启用 root 映射）
         if (userInfo.uid == 0L) {
-            prootArgs.add(0, "-0")
+            prootArgs.add(1, "-0")  // 放在 prootBin 之后，参数之前
         }
-        
+
         prootArgs.addAll(listOf(
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
             "--rootfs=${rootfs.absolutePath}",
