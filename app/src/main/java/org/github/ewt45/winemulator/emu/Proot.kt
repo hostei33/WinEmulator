@@ -74,7 +74,7 @@ class Proot {
             "--bind=/proc",
             "--bind=/dev/urandom:/dev/random",
             "--bind=/dev",
-        )
+        ))
 
         // 绑定标准文件描述符（如果不存在）
         File("/dev/stderr").takeIf { !it.exists() }?.let {
