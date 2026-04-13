@@ -42,9 +42,14 @@ class TerminalViewModel : ViewModel() {
             val args = cmdList.drop(1).toTypedArray()
             val cwd = pb.directory()?.absolutePath ?: "/"
             
-            // 关键修复：从 ProcessBuilder 提取环境变量
-            // 如果不传这个 envs，proot 就会因为找不到临时目录而回退到 Termux 默认路径，导致权限报错
-            val envs = pb.environment().map { "${it.key}=${it.value}" }.toTypedArray()
+            // 只传递 proot 需要的必要环境变量，不传递 Android 环境变量（避免参数太长）
+            // proot 内部会用 /usr/bin/env -i 清除所有环境，然后设置正确的 loginEnvs
+            val pbEnv = pb.environment()
+            val envs = arrayOf(
+                "PROOT_TMP_DIR=${pbEnv["PROOT_TMP_DIR"] ?: ""}",
+                "PROOT_NO_SECCOMP=${pbEnv["PROOT_NO_SECCOMP"] ?: ""}",
+                "LD_PRELOAD=${pbEnv["LD_PRELOAD"] ?: ""}"
+            )
             
             withContext(Dispatchers.Main) {
                 val session = TerminalSession(
