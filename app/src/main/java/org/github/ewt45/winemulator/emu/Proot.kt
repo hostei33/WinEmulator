@@ -44,15 +44,15 @@ class Proot {
         homeDir.setWritable(true, false)
         homeDir.setExecutable(true, false)
 
-        // 1. 核心参数 - 严格按顺序添加，避免参数顺序问题
+        // 1. 核心参数 - 严格按顺序添加
+        // 关键：不使用 -0，统一使用 --change-id（-0 等效于 --change-id=0:0，同时使用会冲突）
         val prootArgs = mutableListOf(
             prootBin.absolutePath,
         )
 
         val options = proot_bool_options.get()
 
-        // 按固定顺序添加参数（不使用 Set，确保顺序稳定）
-        if ("-0" in options) prootArgs.add("-0")
+        // 添加参数，但过滤掉 -0（用 --change-id 替代）
         if ("--link2symlink" in options || "-L" in options) prootArgs.add("--link2symlink")
         if ("--sysvipc" in options) prootArgs.add("--sysvipc")
         if ("--kill-on-exit" in options) prootArgs.add("--kill-on-exit")
@@ -60,16 +60,7 @@ class Proot {
         prootArgs.addAll(listOf(
             "--kernel-release=${ProotHelper.DEFAULT_FAKE_KERNEL_VERSION}",  // 伪装内核版本
             "--rootfs=${rootfs.absolutePath}",
-        ))
-
-        // 关键：-0 等效于 --change-id=0:0，两者不能同时使用
-        // root 用户：使用 -0（已在上方添加），不需要 --change-id
-        // 非 root 用户：使用 --change-id
-        if (userInfo.uid != 0L || "-0" !in options) {
-            prootArgs.add("--change-id=${userInfo.uid}:${userInfo.gid}")
-        }
-
-        prootArgs.addAll(listOf(
+            "--change-id=${userInfo.uid}:${userInfo.gid}",  // 统一使用 --change-id，包括 root 用户
             "--cwd=${userInfo.home}",  // proot 容器内初始工作目录
             "--bind=${tmpDir.absolutePath}:/tmp",
             "--bind=${rootfs.absolutePath}/tmp:/dev/shm",
